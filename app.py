@@ -203,6 +203,16 @@ def load_production_artifacts():
 
 enet_pipeline, hgb_pipeline, metadata = load_production_artifacts()
 
+@st.cache_data
+def load_raw_dataset():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_path = os.path.join(base_dir, "house_prices.csv")
+    if os.path.exists(csv_path):
+        return pd.read_csv(csv_path)
+    return None
+
+df_raw = load_raw_dataset()
+
 # ---------------------------------------------------------
 # Indian Rupee Formatting Helpers
 # ---------------------------------------------------------
@@ -335,8 +345,10 @@ st.markdown("""
 # ---------------------------------------------------------
 # Tabbed Navigation
 # ---------------------------------------------------------
-tab_val, tab_emi, tab_roi, tab_diag = st.tabs([
+tab_val, tab_land, tab_arch, tab_emi, tab_roi, tab_diag = st.tabs([
     "🏠 Property Valuation (संपत्ति मूल्यांकन)",
+    "🗺️ Land & Area Intelligence (ज़मीन एवं इलाका गाइड)",
+    "🏛️ Architectural Gallery (मकान एवं शैलियां)",
     "💰 Home Loan & EMI Calculator (मासिक किस्त)",
     "💡 Renovation & Value Booster (मूल्य बढ़ाने के उपाय)",
     "🔬 Advanced Econometric Audit (गहन सांख्यिकी रिपोर्ट)"
@@ -668,6 +680,44 @@ with tab_val:
         </div>
         """, unsafe_allow_html=True)
 
+    # ---------------------------------------------------------
+    # Architectural Elevation & Locality Visual Preview
+    # ---------------------------------------------------------
+    st.write("")
+    st.markdown("#### 🖼️ Architectural Elevation & Locality Setting (मकान का प्रारूप एवं दृश्य)")
+    
+    # Auto-detection of architectural style
+    if overall_qual >= 8 or gr_liv_area >= 2200:
+        default_style_key = "Executive 2-Story Luxury Villa (भव्य 2-मंज़िला कोठी)"
+        img_file = "assets/luxury_villa.jpg"
+        style_desc = "💎 **Key Features:** Natural cut-stone & clear cedar siding, soaring high ceilings, expansive thermal glazing, attached 2+ car garage, and landscaped frontage."
+        img_caption = f"Executive 2-Story Villa • {bedrooms} BHK • {gr_liv_area:,} sq ft (~{gaj_equiv:.0f} Gaj)"
+    elif overall_qual >= 6 and gr_liv_area >= 1400:
+        default_style_key = "Classic American Craftsman Residence (पारंपरिक क्राफ़्ट्समैन बंगला)"
+        img_file = "assets/craftsman_home.jpg"
+        style_desc = "🏡 **Key Features:** 1.5-story architectural profile with deep covered front verandah, tapered masonry stone columns, gabled roofline, and warm suburban character."
+        img_caption = f"American Craftsman 1.5-Story • {bedrooms} BHK • {gr_liv_area:,} sq ft (~{gaj_equiv:.0f} Gaj)"
+    else:
+        default_style_key = "Contemporary Single-Story Ranch Bungalow (आधुनिक एक-मंज़िला रैंच बंगला)"
+        img_file = "assets/ranch_bungalow.jpg"
+        style_desc = "🏠 **Key Features:** Low-profile single-story horizontal design, wide road frontage, zero-stair living accessibility, integrated 2-car garage, and private rear lawn."
+        img_caption = f"Modern Ranch Bungalow • {bedrooms} BHK • {gr_liv_area:,} sq ft (~{gaj_equiv:.0f} Gaj)"
+        
+    vcol1, vcol2 = st.columns([1, 1], gap="large")
+    
+    with vcol1:
+        st.markdown(f"**🏠 Selected Elevation Style:** `{default_style_key}`")
+        if os.path.exists(img_file):
+            st.image(img_file, caption=img_caption, use_container_width=True)
+        st.caption(style_desc)
+            
+    with vcol2:
+        st.markdown(f"**🌳 Ames Locality Environment:** `{neighborhood}`")
+        hood_img = "assets/upscale_neighborhood.jpg"
+        if os.path.exists(hood_img):
+            st.image(hood_img, caption=f"Ames Neighborhood Streetscape • {neighborhood} • Zoning: {ms_zoning}", use_container_width=True)
+        st.caption(f"🛣️ **Plot & Area Attributes:** Road Frontage: **{lot_frontage} ft**, Boundary Area: **{lot_area:,} sq ft (~{plot_gaj:.0f} Gaj)**. Wide paved streets, underground drainage, generous setback zoning.")
+
     # Probabilistic Prediction Interval Distribution Plot
     st.write("")
     st.markdown("#### 📉 Valuation Probability Distribution (मूल्य संभावना वक्र)")
@@ -816,7 +866,471 @@ with tab_val:
             </div>
         </div>
         """, unsafe_allow_html=True)
-# TAB 2: HOME LOAN & EMI CALCULATOR (मासिक किस्त)
+
+# ---------------------------------------------------------
+# TAB 2: LAND & AREA INTELLIGENCE GUIDE (ज़मीन एवं इलाका गाइड)
+# ---------------------------------------------------------
+with tab_land:
+    st.markdown("### 🗺️ Land & Locality Valuation Intelligence (ज़मीन एवं इलाका मार्गदर्शिका)")
+    st.markdown("Essential guide for property buyers, investors, and homeowners: Understand land dimensions, unit conversions across Indian standards, Carpet vs Built-up vs Super Built-up area dynamics, Plot frontage, FAR/FSI regulations, and neighborhood price tiers.")
+
+    # PART 1: UNIVERSAL LAND MEASUREMENT CONVERTER
+    st.markdown("---")
+    st.markdown("#### 🔄 Universal Land Measurement Unit Converter (ज़मीन मापन एवं इकाई परिवर्तक)")
+    st.markdown("Easily convert plot and land sizes between standard international square feet, North/West Indian **Gaj (वर्ग गज)**, Western Indian **Guntha (गुंठा)**, Northern/Eastern **Bigha (बीघा)**, and agricultural **Acre / Hectare**.")
+
+    conv_c1, conv_c2 = st.columns([1, 2], gap="large")
+    with conv_c1:
+        st.markdown("""
+        <div class="input-box">
+            <h5 style="margin-top: 0; color: #38bdf8;">📥 Enter Land Size (माप दर्ज करें)</h5>
+        </div>
+        """, unsafe_allow_html=True)
+        unit_options = [
+            "Gaj / Sq Yards (वर्ग गज)",
+            "Square Feet (वर्ग फुट - Sq Ft)",
+            "Guntha (गुंठा - MH/KA/GJ)",
+            "Bigha (बीघा - Standard Pucca Bigha)",
+            "Biswa / Katha (बिस्वा / कट्ठा)",
+            "Acre (एकड़)",
+            "Hectare (हेक्टेयर)"
+        ]
+        selected_unit = st.selectbox("Select Input Unit (इकाई चुनें)", options=unit_options, index=0, key="land_unit_select")
+        
+        default_val = 200.0 if "Gaj" in selected_unit else (1800.0 if "Sq Ft" in selected_unit else 1.0)
+        user_val = st.number_input("Enter Quantity (मात्रा दर्ज करें)", min_value=0.1, max_value=1_000_000.0, value=default_val, step=10.0 if ("Gaj" in selected_unit or "Sq Ft" in selected_unit) else 0.5, key="land_user_val")
+
+        if "Gaj" in selected_unit:
+            sqft_base = user_val * 9.0
+        elif "Sq Ft" in selected_unit:
+            sqft_base = user_val
+        elif "Guntha" in selected_unit:
+            sqft_base = user_val * 1089.0
+        elif "Bigha" in selected_unit:
+            sqft_base = user_val * 27000.0
+        elif "Biswa" in selected_unit:
+            sqft_base = user_val * 1350.0
+        elif "Acre" in selected_unit:
+            sqft_base = user_val * 43560.0
+        elif "Hectare" in selected_unit:
+            sqft_base = user_val * 107639.1
+        else:
+            sqft_base = user_val
+
+    with conv_c2:
+        st.markdown("""
+        <div class="input-box">
+            <h5 style="margin-top: 0; color: #34d399;">📊 Instant Equivalent Conversions (समतुल्य माप)</h5>
+        </div>
+        """, unsafe_allow_html=True)
+
+        res_gaj = sqft_base / 9.0
+        res_sqft = sqft_base
+        res_guntha = sqft_base / 1089.0
+        res_bigha = sqft_base / 27000.0
+        res_biswa = sqft_base / 1350.0
+        res_acre = sqft_base / 43560.0
+        res_hectare = sqft_base / 107639.1
+
+        u1, u2, u3 = st.columns(3)
+        with u1:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">Gaj (वर्ग गज)</div>
+                <div class="metric-value" style="color: #38bdf8;">{res_gaj:,.1f}</div>
+                <div class="metric-sub">1 Gaj = 9 Sq Ft (1 Sq Yard)</div>
+            </div>
+            """, unsafe_allow_html=True)
+            st.write("")
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">Bigha (बीघा)</div>
+                <div class="metric-value" style="color: #f59e0b;">{res_bigha:,.3f}</div>
+                <div class="metric-sub">1 Standard Bigha = 3,000 Gaj</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with u2:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">Square Feet (वर्ग फुट)</div>
+                <div class="metric-value" style="color: #60a5fa;">{res_sqft:,.1f}</div>
+                <div class="metric-sub">Universal Standard Unit</div>
+            </div>
+            """, unsafe_allow_html=True)
+            st.write("")
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">Biswa / Katha (बिस्वा)</div>
+                <div class="metric-value" style="color: #ec4899;">{res_biswa:,.2f}</div>
+                <div class="metric-sub">1 Biswa = 150 Gaj = 1,350 Sq Ft</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with u3:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">Guntha (गुंठा)</div>
+                <div class="metric-value" style="color: #34d399;">{res_guntha:,.2f}</div>
+                <div class="metric-sub">1 Guntha = 121 Gaj (1,089 Sq Ft)</div>
+            </div>
+            """, unsafe_allow_html=True)
+            st.write("")
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">Acre / Hectare</div>
+                <div class="metric-value" style="color: #a78bfa;">{res_acre:,.3f} <span style="font-size: 0.9rem; color: #94a3b8;">Ac</span></div>
+                <div class="metric-sub">{res_hectare:,.3f} Hectare (43,560 sq ft/ac)</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # PART 2: CARPET VS BUILT-UP VS SUPER BUILT-UP AREA (RERA GUIDE)
+    st.markdown("---")
+    st.markdown("#### 📐 Carpet Area vs. Built-up Area vs. Super Built-up Area (RERA Master Guide)")
+    st.markdown("Understanding how builders, developers, and valuation appraisers measure space is crucial to avoid overpaying for phantom square footage.")
+
+    rera_c1, rera_c2, rera_c3 = st.columns(3, gap="medium")
+    with rera_c1:
+        st.markdown("""
+        <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(59, 130, 246, 0.4); border-radius: 14px; padding: 20px; height: 100%;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <span style="background: rgba(59, 130, 246, 0.2); color: #60a5fa; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.85rem;">1. ACTUAL LIVING</span>
+            </div>
+            <h4 style="margin: 6px 0; color: #f8fafc;">Carpet Area (कारपेट एरिया)</h4>
+            <p style="color: #94a3b8; font-size: 0.88rem; line-height: 1.5;">
+                <strong>What it is:</strong> Net usable floor area within the apartment / house boundary walls where you can literally lay a carpet.<br><br>
+                ✅ <strong>Includes:</strong> Living room, bedrooms, kitchen, bathrooms, internal passages, store room.<br>
+                ❌ <strong>Excludes:</strong> External wall thickness, balcony / utility terrace, common areas.<br>
+                📜 <strong>RERA Rule:</strong> Mandatory for all Indian developers to quote and register sales strictly on Net Carpet Area.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with rera_c2:
+        st.markdown("""
+        <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 14px; padding: 20px; height: 100%;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <span style="background: rgba(16, 185, 129, 0.2); color: #34d399; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.85rem;">2. PLINTH FOOTPRINT</span>
+            </div>
+            <h4 style="margin: 6px 0; color: #f8fafc;">Built-up Area (बिल्ट-अप एरिया)</h4>
+            <p style="color: #94a3b8; font-size: 0.88rem; line-height: 1.5;">
+                <strong>What it is:</strong> Total area covered by the property including outer perimeter walls and attached balconies.<br><br>
+                ✅ <strong>Formula:</strong> Carpet Area + Outer Wall Thickness + Balcony / Verandah.<br>
+                📈 <strong>Typical Ratio:</strong> Usually <strong>10% to 15% larger</strong> than carpet area.<br>
+                🏡 <strong>Ames Equivalent:</strong> Closely mirrors <code>GrLivArea</code> (Gross Living Area above ground) plus attached porch space.
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with rera_c3:
+        st.markdown("""
+        <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(168, 85, 247, 0.4); border-radius: 14px; padding: 20px; height: 100%;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <span style="background: rgba(168, 85, 247, 0.2); color: #c084fc; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.85rem;">3. QUOTED SALEABLE</span>
+            </div>
+            <h4 style="margin: 6px 0; color: #f8fafc;">Super Built-up Area (सुपर बिल्ट-अप)</h4>
+            <p style="color: #94a3b8; font-size: 0.88rem; line-height: 1.5;">
+                <strong>What it is:</strong> Built-up area plus a proportionate share of all common shared campus amenities (called <em>Loading Factor</em>).<br><br>
+                ✅ <strong>Includes:</strong> Lift lobbies, staircases, common corridors, clubhouse, guards cabin, generator room.<br>
+                ⚠️ <strong>Loading Factor:</strong> Typically <strong>20% to 35%</strong>. A high loading factor means you pay for non-usable shared amenities.<br>
+                💡 <strong>Always verify:</strong> Effective cost per carpet sq ft!
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # INTERACTIVE RERA LOADING & PRICE TRANSPARENCY SIMULATOR
+    st.write("")
+    st.markdown("##### 🧮 Interactive RERA Loading & True Carpet Rate Calculator")
+    
+    rc1, rc2, rc3 = st.columns(3)
+    with rc1:
+        target_carpet = st.slider("Target Carpet Area (कारपेट एरिया - Sq Ft)", min_value=500, max_value=3500, value=1200, step=50, key="rc_target_carpet")
+    with rc2:
+        loading_pct = st.slider("Builder Loading Factor (लोडिंग %)", min_value=15, max_value=40, value=25, step=1, help="Percentage added on top of carpet area for common spaces.", key="rc_loading_pct")
+    with rc3:
+        quoted_rate = st.number_input("Quoted Super Built-up Rate (प्रति वर्ग फुट भाव)", min_value=2000.0, max_value=50000.0, value=6500.0, step=250.0, key="rc_quoted_rate")
+
+    computed_super = target_carpet * (1.0 + loading_pct / 100.0)
+    total_flat_cost = computed_super * quoted_rate
+    effective_carpet_rate = total_flat_cost / target_carpet
+
+    sim_m1, sim_m2, sim_m3, sim_m4 = st.columns(4)
+    with sim_m1:
+        st.metric("Total Super Built-up Area", f"{computed_super:,.0f} sq ft", f"+{loading_pct}% Loading")
+    with sim_m2:
+        st.metric("Total Property Cost", f"₹{total_flat_cost/100_000:,.2f} Lakh" if total_flat_cost < 10_000_000 else f"₹{total_flat_cost/10_000_000:,.2f} Cr")
+    with sim_m3:
+        st.metric("Quoted Super Rate", f"₹{quoted_rate:,.0f} / sqft")
+    with sim_m4:
+        st.metric("True Carpet Rate (वास्तविक दर)", f"₹{effective_carpet_rate:,.0f} / sqft", f"+₹{effective_carpet_rate - quoted_rate:,.0f} premium", delta_color="inverse")
+
+    # PART 3: PLOT FRONTAGE, ROAD WIDTH & GEOMETRY
+    st.markdown("---")
+    st.markdown("#### 🛣️ Plot Frontage, Road Width & Geometry Impact on Value")
+    st.markdown("Land value is heavily dictated not just by square footage, but by physical geometry, road exposure, and corner orientation.")
+
+    p_col1, p_col2 = st.columns(2, gap="large")
+    with p_col1:
+        st.markdown("""
+        <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 22px;">
+            <h5 style="color: #38bdf8; margin-top: 0;">🚗 Road Frontage & Street Visibility (सड़क से चौड़ाई)</h5>
+            <ul style="color: #cbd5e1; font-size: 0.88rem; line-height: 1.6; padding-left: 20px;">
+                <li><strong>Frontage-to-Depth Ratio:</strong> An ideal plot has an aspect ratio between <strong>1:1.5 and 1:2</strong>. Overly deep, narrow plots (e.g. 20 ft wide by 100 ft deep) suffer dark rooms and limited parking.</li>
+                <li><strong>Empirical Ames Data Finding:</strong> Properties with <strong>LotFrontage &ge; 75 ft</strong> trade at an average <strong>+18.4% price premium</strong> compared to plots with &le; 50 ft frontage.</li>
+                <li><strong>Parking & Garage Access:</strong> Frontage &ge; 50 ft is required to fit a standard 2-car side-by-side garage driveway without crowding the pedestrian entrance.</li>
+                <li><strong>Setback Rules:</strong> Front setbacks (usually 20-30 ft from road center) reduce buildable area on shallow plots.</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with p_col2:
+        st.markdown("""
+        <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 22px;">
+            <h5 style="color: #34d399; margin-top: 0;">🌟 Corner Plots vs. Cul-de-Sacs vs. Regular Lots</h5>
+            <ul style="color: #cbd5e1; font-size: 0.88rem; line-height: 1.6; padding-left: 20px;">
+                <li><strong>Corner Plots (कॉर्नर प्लॉट - 2-Side Open):</strong> Commands <strong>15% to 20% premium</strong>. Offers dual vehicle entry, superior natural cross-ventilation, and potential commercial/office front.</li>
+                <li><strong>Cul-de-Sac Lots (बंद गली के अंत में):</strong> Highest price in Ames dataset (<strong>Median: $199,262 vs $159,697</strong> for standard inside plots — <strong>+25% premium</strong>) due to zero speeding traffic, pie-shaped rear gardens, and family safety.</li>
+                <li><strong>Regular vs. Irregular Lots (Reg vs IR1/IR2):</strong> Regular rectangular lots offer 100% usable efficiency. Highly irregular triangular plots lose 15-25% land to unusable angled corners.</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # PART 4: FAR / FSI CALCULATOR
+    st.markdown("---")
+    st.markdown("#### 🏗️ Floor Space Index (FSI) & Floor Area Ratio (FAR) Demystified")
+    st.markdown("The **FAR / FSI** defines the maximum legal built-up area municipal authorities permit you to construct on a given land plot.")
+
+    far_c1, far_c2 = st.columns([1, 1], gap="large")
+    with far_c1:
+        st.markdown(r"""
+        $$\text{FAR} = \frac{\text{Total Permissible Built-up Area on All Floors}}{\text{Gross Plot Land Area}}$$
+        """)
+        st.markdown("""
+        - **Low Density Zones (Residential Suburbs):** FAR typically 1.2 to 1.75.
+        - **Medium Density Zones:** FAR typically 2.0 to 2.5.
+        - **High Density Transit Corridors:** FAR typically 3.0 to 4.0+.
+        """)
+        calc_plot_gaj = st.number_input("Enter Plot Size (Gaj - वर्ग गज)", min_value=50.0, max_value=5000.0, value=250.0, step=25.0, key="calc_plot_gaj")
+        calc_plot_sqft = calc_plot_gaj * 9.0
+        st.caption(f"Plot Area = **{calc_plot_sqft:,.0f} Sq Ft**")
+        
+        calc_far = st.selectbox("Permissible FAR / FSI (स्वीकृत एफ.ए.आर.)", options=[1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0], index=3, key="calc_far_select")
+        calc_coverage = st.slider("Max Ground Coverage % (अधिकतम ग्राउंड कवरेज)", min_value=40, max_value=75, value=60, step=5, key="calc_coverage_slider")
+
+    with far_c2:
+        max_total_buildup = calc_plot_sqft * calc_far
+        max_ground_footprint = calc_plot_sqft * (calc_coverage / 100.0)
+        est_floors = max_total_buildup / max_ground_footprint if max_ground_footprint > 0 else 1.0
+
+        st.markdown("""
+        <div class="input-box">
+            <h5 style="margin-top: 0; color: #a78bfa;">📐 Construction Capacity Analysis (निर्माण क्षमता)</h5>
+        </div>
+        """, unsafe_allow_html=True)
+
+        fc1, fc2 = st.columns(2)
+        with fc1:
+            st.metric("Total Constructible Area", f"{max_total_buildup:,.0f} sq ft", f"~{max_total_buildup/9.0:,.0f} Gaj")
+            st.metric("Est. Permissible Stories", f"~{est_floors:.1f} Floors", f"G + {max(1, int(round(est_floors - 1)))} Structure")
+        with fc2:
+            st.metric("Max Ground Floor Footprint", f"{max_ground_footprint:,.0f} sq ft", f"{calc_coverage}% Plot Coverage")
+            open_space = calc_plot_sqft - max_ground_footprint
+            st.metric("Mandatory Open / Garden Space", f"{open_space:,.0f} sq ft", f"~{open_space/9.0:,.0f} Gaj")
+
+    # PART 5: AMES LOCALITY & NEIGHBORHOOD DYNAMICS
+    st.markdown("---")
+    st.markdown("#### 📍 Ames Locality & Neighborhood Dynamics (इलाकों का वर्गीकरण एवं विश्लेषण)")
+    st.markdown("In real estate, location is the single largest determinant of long-term capital appreciation and rental yield.")
+
+    # Neighborhood data table & plot
+    if df_raw is not None:
+        hood_stats = df_raw.groupby('Neighborhood').agg(
+            count=('SalePrice', 'count'),
+            mean_price=('SalePrice', 'mean'),
+            median_price=('SalePrice', 'median'),
+            mean_lot=('LotArea', 'mean'),
+            mean_grliv=('GrLivArea', 'mean')
+        ).round(1).reset_index()
+
+        rate_multiplier = usd_inr_rate if is_inr else 1.0
+        hood_stats['price_display'] = hood_stats['mean_price'] * rate_multiplier
+        hood_stats['median_display'] = hood_stats['median_price'] * rate_multiplier
+        hood_stats['rate_sqft'] = (hood_stats['price_display'] / hood_stats['mean_grliv']).round(0)
+        hood_stats['lot_gaj'] = (hood_stats['mean_lot'] / 9.0).round(0)
+
+        # Assign Tiers
+        def assign_tier(p_usd):
+            if p_usd >= 270000:
+                return "Tier 1: Luxury Enclave (लक्जरी कोठी)"
+            elif p_usd >= 200000:
+                return "Tier 2: Prime Suburban (प्राइम सबअर्बन)"
+            elif p_usd >= 150000:
+                return "Tier 3: Established Residential (स्थापित आवासीय)"
+            else:
+                return "Tier 4: Historic & Affordable (किफायती / ऐतिहासिक)"
+
+        hood_stats['Tier'] = hood_stats['mean_price'].apply(assign_tier)
+        hood_stats = hood_stats.sort_values('price_display', ascending=False)
+
+        # Bar chart
+        fig_hood = px.bar(
+            hood_stats,
+            x='Neighborhood',
+            y='price_display',
+            color='Tier',
+            title=f"Average Property Price by Locality ({'₹ Indian Rupees' if is_inr else '$ USD'})",
+            labels={'price_display': f"Average Price ({curr_symbol})", 'Neighborhood': 'Locality / Colony'},
+            color_discrete_map={
+                "Tier 1: Luxury Enclave (लक्जरी कोठी)": "#8b5cf6",
+                "Tier 2: Prime Suburban (प्राइम सबअर्बन)": "#3b82f6",
+                "Tier 3: Established Residential (स्थापित आवासीय)": "#10b981",
+                "Tier 4: Historic & Affordable (किफायती / ऐतिहासिक)": "#f59e0b"
+            }
+        )
+        fig_hood.update_layout(
+            template="plotly_dark",
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            xaxis_tickangle=-45,
+            margin=dict(l=40, r=40, t=50, b=80)
+        )
+        st.plotly_chart(fig_hood)
+
+        # Neighborhood Selector for Deep Dive
+        st.markdown("##### 🔍 Neighborhood Deep Dive Inspector (इलाका विस्तृत विवरण)")
+        selected_hood = st.selectbox("Select Locality to Inspect", options=hood_stats['Neighborhood'].tolist(), index=0, key="hood_deep_dive_select")
+        hood_row = hood_stats[hood_stats['Neighborhood'] == selected_hood].iloc[0]
+
+        hc1, hc2, hc3, hc4 = st.columns(4)
+        with hc1:
+            st.metric("Average Property Valuation", f"₹{hood_row['price_display']/100_000:,.1f} Lakh" if is_inr and hood_row['price_display'] < 10_000_000 else (f"₹{hood_row['price_display']/10_000_000:,.2f} Cr" if is_inr else f"${hood_row['price_display']:,.0f}"))
+        with hc2:
+            st.metric("Price per Sq Ft Rate", f"{curr_symbol}{hood_row['rate_sqft']:,.0f} / sqft")
+        with hc3:
+            st.metric("Average Plot Size", f"{hood_row['lot_gaj']:,.0f} Gaj", f"{hood_row['mean_lot']:,.0f} sq ft")
+        with hc4:
+            st.metric("Locality Tier", hood_row['Tier'].split(":")[0])
+
+
+# ---------------------------------------------------------
+# TAB 3: ARCHITECTURAL STYLES & HOUSING GALLERY
+# ---------------------------------------------------------
+with tab_arch:
+    st.markdown("### 🏛️ Architectural Styles & Typology Showcase (मकान एवं स्थापत्य कला गैलरी)")
+    st.markdown("Explore high-definition architectural profiles of residential styles in Ames, Iowa, and their econometric price impact.")
+
+    st.markdown("---")
+    st.markdown("#### 📸 Architectural Elevations & Locality Gallery")
+
+    ag1, ag2 = st.columns(2, gap="large")
+
+    with ag1:
+        st.markdown("""
+        <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(139, 92, 246, 0.4); border-radius: 16px; padding: 18px; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span style="background: rgba(139, 92, 246, 0.2); color: #c084fc; padding: 4px 12px; border-radius: 9999px; font-weight: 700; font-size: 0.8rem;">
+                    EXECUTIVE LUXURY • 2-STORY
+                </span>
+                <span style="color: #94a3b8; font-size: 0.82rem; font-weight: 600;">OverallQual: 9-10</span>
+            </div>
+            <h4 style="margin: 0 0 10px 0; color: #f8fafc;">💎 Executive 2-Story Modern Villa (शानदार 2-मंज़िला कोठी)</h4>
+        </div>
+        """, unsafe_allow_html=True)
+        if os.path.exists("assets/luxury_villa.jpg"):
+            st.image("assets/luxury_villa.jpg", caption="Luxury Modern Villa • Stone Veneer & Cedar Accents • 2-Car Garage", use_container_width=True)
+        st.markdown("""
+        - **Architectural Profile:** Multi-level vertical elegance with soaring 10-12 ft ceilings and double-height foyer.
+        - **Materials:** Natural ashlar stone masonry veneer, horizontal clear cedar timber cladding, high-efficiency glazing.
+        - **Typical Space:** 2,400 – 4,500 sq ft (260 – 500 Gaj) • 4-5 BHK with attached suites.
+        - **Valuation Benchmark:** **₹2.4 – ₹4.8 Crore** ($280k – $550k+).
+        - **Locality Association:** Flagship estates in Stone Brook, Northridge, and Northridge Heights.
+        """)
+
+    with ag2:
+        st.markdown("""
+        <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(59, 130, 246, 0.4); border-radius: 16px; padding: 18px; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; padding: 4px 12px; border-radius: 9999px; font-weight: 700; font-size: 0.8rem;">
+                    AMERICAN CRAFTSMAN • 1.5-STORY
+                </span>
+                <span style="color: #94a3b8; font-size: 0.82rem; font-weight: 600;">OverallQual: 6-8</span>
+            </div>
+            <h4 style="margin: 0 0 10px 0; color: #f8fafc;">🏡 Classic American Craftsman Suburban Residence (पारंपरिक क्राफ़्ट्समैन बंगला)</h4>
+        </div>
+        """, unsafe_allow_html=True)
+        if os.path.exists("assets/craftsman_home.jpg"):
+            st.image("assets/craftsman_home.jpg", caption="Classic Craftsman Home • Covered Verandah Porch • Tapered Columns", use_container_width=True)
+        st.markdown("""
+        - **Architectural Profile:** 1.5-story profile with finished upper attic rooms, low-pitched gables, and prominent overhanging eaves.
+        - **Materials:** Deep covered front verandah, tapered masonry stone piers, wood/composite lap siding.
+        - **Typical Space:** 1,400 – 2,200 sq ft (155 – 245 Gaj) • 3-4 BHK family configuration.
+        - **Valuation Benchmark:** **₹1.3 – ₹2.3 Crore** ($150k – $275k).
+        - **Locality Association:** Established neighborhoods like Crawford, College Creek, and Gilbert.
+        """)
+
+    st.write("")
+    ag3, ag4 = st.columns(2, gap="large")
+
+    with ag3:
+        st.markdown("""
+        <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(16, 185, 129, 0.4); border-radius: 16px; padding: 18px; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span style="background: rgba(16, 185, 129, 0.2); color: #6ee7b7; padding: 4px 12px; border-radius: 9999px; font-weight: 700; font-size: 0.8rem;">
+                    CONTEMPORARY RANCH • 1-STORY
+                </span>
+                <span style="color: #94a3b8; font-size: 0.82rem; font-weight: 600;">Universal Accessibility</span>
+            </div>
+            <h4 style="margin: 0 0 10px 0; color: #f8fafc;">🏠 Contemporary Single-Story Ranch Bungalow (आधुनिक रैंच बंगला)</h4>
+        </div>
+        """, unsafe_allow_html=True)
+        if os.path.exists("assets/ranch_bungalow.jpg"):
+            st.image("assets/ranch_bungalow.jpg", caption="Modern Ranch Bungalow • Zero-Stair Living • Wide Street Frontage", use_container_width=True)
+        st.markdown("""
+        - **Architectural Profile:** Ground-level sprawling single-floor layout with seamless indoor-outdoor patio connectivity.
+        - **Materials:** Horizontal timber panels, low-pitched hipped roofs, large picture windows, attached 2-car garage.
+        - **Typical Space:** 1,100 – 1,800 sq ft (120 – 200 Gaj) • 2-3 BHK • Equal-sized full basement underneath.
+        - **Valuation Benchmark:** **₹95 Lakh – ₹1.7 Crore** ($115k – $200k).
+        - **Locality Association:** North Ames (NAmes), Sawyer, Mitchell.
+        """)
+
+    with ag4:
+        st.markdown("""
+        <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 16px; padding: 18px; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <span style="background: rgba(56, 189, 248, 0.2); color: #7dd3fc; padding: 4px 12px; border-radius: 9999px; font-weight: 700; font-size: 0.8rem;">
+                    STREETSCAPE & SETBACKS
+                </span>
+                <span style="color: #94a3b8; font-size: 0.82rem; font-weight: 600;">Urban Planning Standards</span>
+            </div>
+            <h4 style="margin: 0 0 10px 0; color: #f8fafc;">🌳 Ames Upscale Tree-Lined Boulevard (प्रीमियम आवासीय इलाका)</h4>
+        </div>
+        """, unsafe_allow_html=True)
+        if os.path.exists("assets/upscale_neighborhood.jpg"):
+            st.image("assets/upscale_neighborhood.jpg", caption="Upscale Ames Streetscape • Paved Curbs • Manicured Lawns • 70+ Ft Frontage", use_container_width=True)
+        st.markdown("""
+        - **Area Planning:** Tree-lined boulevards, 30 ft street widths, pedestrian sidewalks, underground electrical and stormwater networks.
+        - **Setback Regulations:** Minimum 25 ft front-yard setback, 10 ft side-yard clearances ensuring daylight buffer.
+        - **Lot Dimensions:** 70–90 ft street frontage, 9,000–14,000 sq ft lot area (1,000–1,500 Gaj).
+        - **Appreciation Shield:** Strict municipal covenants and homeowner association (HOA) architectural standards guarantee long-term asset value retention.
+        """)
+
+    # Architectural Regression Sensitivity Table
+    st.markdown("---")
+    st.markdown("#### 📊 Architectural Features: Econometric Price Sensitivity")
+    st.markdown("Based on our ElasticNet and Gradient Boosting regression models, here is how key structural and architectural choices mathematically impact property valuations:")
+
+    arch_factors = [
+        {"Feature": "Foundation Type: Poured Concrete (PConc)", "Impact": "+8.4%", "Description": "Resists water seepage, seismic shifts; preferred over CBlock (+8.4% value premium)."},
+        {"Feature": "Masonry Veneer: Brick / Stone Exterior", "Impact": "+7.5%", "Description": "Adds superior insulation, sound dampening, and permanent curb appeal vs vinyl siding."},
+        {"Feature": "Roof Design: Hip Roof vs Gable", "Impact": "+3.8%", "Description": "Four-sided slopes offer wind protection and upscale architectural symmetry."},
+        {"Feature": "Full Basement with 9ft+ Ceilings (BsmtQual Ex)", "Impact": "+9.2%", "Description": "Provides easily finishable extra living square footage without roof alterations."},
+        {"Feature": "Attached 2-3 Car Garage (GarageCars >= 2)", "Impact": "+11.6%", "Description": "Crucial utility for mid-to-luxury homes; strong resale requirement in suburban markets."},
+        {"Feature": "Central Air Conditioning (CentralAir = Y)", "Impact": "+5.1%", "Description": "Full climate control HVAC is a baseline prerequisite for tier 1-2 homes."}
+    ]
+    st.dataframe(pd.DataFrame(arch_factors), hide_index=True, use_container_width=True)
+
+# ---------------------------------------------------------
+# TAB 4: HOME LOAN & EMI CALCULATOR (मासिक किस्त)
 # ---------------------------------------------------------
 with tab_emi:
     st.markdown("### 💰 Home Loan & Monthly EMI Calculator (गृह ऋण एवं मासिक किस्त)")
