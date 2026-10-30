@@ -721,7 +721,101 @@ with tab_val:
     )
     st.plotly_chart(fig_dist)
 
-# ---------------------------------------------------------
+    # Valuation Composition & Segment Breakdown
+    st.write("")
+    st.markdown("#### 🧩 Valuation Composition & Price Drivers (मूल्य का स्रोत एवं विभाजन)")
+
+    c_comp1, c_comp2 = st.columns([1, 1], gap="large")
+
+    with c_comp1:
+        living_share = max(0.35, min(0.65, 0.45 + (gr_liv_area - 1500) / 5000))
+        quality_share = max(0.10, min(0.30, 0.15 + (overall_qual - 5) * 0.03))
+        lot_share = max(0.10, min(0.25, 0.15 + (lot_area - 8000) / 40000))
+        amenity_share = max(0.05, 1.0 - (living_share + quality_share + lot_share))
+
+        comp_labels = [
+            'Built-Up Living Space (कारपेट एरिया)',
+            'Plot & Location (ज़मीन और इलाका)',
+            'Construction Quality & Finish (गुणवत्ता)',
+            'Amenities (पार्किंग, बेसमेंट, स्नानघर)'
+        ]
+        comp_values = [
+            blended_usd * living_share * rate_factor,
+            blended_usd * lot_share * rate_factor,
+            blended_usd * quality_share * rate_factor,
+            blended_usd * amenity_share * rate_factor
+        ]
+
+        fig_comp = go.Figure(data=[go.Pie(
+            labels=comp_labels,
+            values=comp_values,
+            hole=.45,
+            marker=dict(colors=['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b']),
+            textinfo='label+percent'
+        )])
+        fig_comp.update_layout(
+            title="Price Composition Split (मूल्य का विभाजन)",
+            template="plotly_dark",
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            margin=dict(l=20, r=20, t=40, b=20),
+            showlegend=False
+        )
+        st.plotly_chart(fig_comp)
+
+    with c_comp2:
+        st.markdown("##### 🏷️ Property Segment Category (संपत्ति श्रेणी)")
+        inr_total = blended_usd * usd_inr_rate if is_inr else blended_usd
+
+        if is_inr:
+            if inr_total < 10_000_000:
+                segment_title = "Affordable / Starter Home (किफायती श्रेणी)"
+                segment_color = "#34d399"
+                gauge_val = 30
+            elif inr_total <= 25_000_000:
+                segment_title = "Mid-Premium Family Home (मध्यम-प्रीमियम श्रेणी)"
+                segment_color = "#38bdf8"
+                gauge_val = 65
+            else:
+                segment_title = "Luxury / High-End Estate (लक्जरी कोठी / विला)"
+                segment_color = "#a78bfa"
+                gauge_val = 90
+        else:
+            if blended_usd < 150_000:
+                segment_title = "Starter / Affordable Tier"
+                segment_color = "#34d399"
+                gauge_val = 30
+            elif blended_usd <= 300_000:
+                segment_title = "Mid-Market Family Home"
+                segment_color = "#38bdf8"
+                gauge_val = 65
+            else:
+                segment_title = "Luxury Estate Tier"
+                segment_color = "#a78bfa"
+                gauge_val = 90
+
+        st.markdown(f"""
+        <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 14px; padding: 22px; height: 100%;">
+            <div style="color: #94a3b8; font-size: 0.82rem; font-weight: 600; text-transform: uppercase;">Segment Classification</div>
+            <div style="font-size: 1.45rem; font-weight: 800; color: {segment_color}; margin: 8px 0;">{segment_title}</div>
+            <div style="color: #cbd5e1; font-size: 0.88rem; margin-bottom: 16px;">
+                Based on market value of <strong>{val_compact}</strong> ({val_full}) in <strong>{neighborhood}</strong>.
+            </div>
+            <div style="margin-top: 14px;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: #94a3b8; margin-bottom: 4px;">
+                    <span>Affordable</span>
+                    <span>Mid-Segment</span>
+                    <span>Luxury</span>
+                </div>
+                <div style="background: rgba(255,255,255,0.08); border-radius: 9999px; height: 12px; overflow: hidden; position: relative;">
+                    <div style="background: linear-gradient(90deg, #10b981 0%, #38bdf8 50%, #8b5cf6 100%); width: {gauge_val}%; height: 100%; border-radius: 9999px;"></div>
+                </div>
+            </div>
+            <div style="margin-top: 24px; padding: 14px; background: rgba(255,255,255,0.03); border-radius: 10px; font-size: 0.82rem; color: #94a3b8;">
+                💡 <strong>Target Persona Match:</strong> Suitable for {'first-time buyers looking for strong value retention' if gauge_val <= 30 else ('families upgrading to premium space & modern amenities' if gauge_val <= 65 else 'high-net-worth investors seeking flagship luxury properties')}.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 # TAB 2: HOME LOAN & EMI CALCULATOR (मासिक किस्त)
 # ---------------------------------------------------------
 with tab_emi:
@@ -895,6 +989,70 @@ with tab_roi:
             <div class="metric-sub">{gain_full} estimated profit value</div>
         </div>
         """, unsafe_allow_html=True)
+
+    # Renovation Value Addition Comparison Chart
+    st.write("")
+    st.markdown("#### 📊 Renovation Value Addition Breakdown (सुधारों का तुलनात्मक प्रभाव)")
+
+    marginal_upgrades = []
+
+    # 1. Modular Kitchen
+    m_df = base_sample_df.copy()
+    m_df['KitchenQual'] = 'Ex'
+    gain_k = np.expm1(enet_pipeline.predict(m_df)[0]) - current_val_usd
+    marginal_upgrades.append(('Luxury Modular Kitchen (लग्जरी रसोई)', max(0, gain_k) * rate_factor))
+
+    # 2. Add Bathroom
+    m_df = base_sample_df.copy()
+    m_df['TotalBathrooms'] = m_df['TotalBathrooms'] + 1
+    gain_b = np.expm1(enet_pipeline.predict(m_df)[0]) - current_val_usd
+    marginal_upgrades.append(('Add 1 Full Bathroom (स्नानघर जोड़ें)', max(0, gain_b) * rate_factor))
+
+    # 3. Add Garage
+    m_df = base_sample_df.copy()
+    m_df['GarageCars'] = (m_df['GarageCars'] + 1).clip(upper=4)
+    m_df['GarageArea'] = m_df['GarageArea'] + 250
+    gain_g = np.expm1(enet_pipeline.predict(m_df)[0]) - current_val_usd
+    marginal_upgrades.append(('Add 1 Covered Car Garage (कार पार्किंग)', max(0, gain_g) * rate_factor))
+
+    # 4. Expand Living Space 200 sqft
+    m_df = base_sample_df.copy()
+    m_df['GrLivArea'] = m_df['GrLivArea'] + 200
+    m_df['TotalLivingArea'] = m_df['TotalLivingArea'] + 200
+    gain_l = np.expm1(enet_pipeline.predict(m_df)[0]) - current_val_usd
+    marginal_upgrades.append(('Expand Living Area +200 sq ft (~22 Gaj)', max(0, gain_l) * rate_factor))
+
+    # 5. Quality Grade +1
+    m_df = base_sample_df.copy()
+    m_df['OverallQual'] = (m_df['OverallQual'] + 1).clip(upper=10)
+    gain_q = np.expm1(enet_pipeline.predict(m_df)[0]) - current_val_usd
+    marginal_upgrades.append(('Upgrade Finish Quality +1 Grade (फिनिशिंग)', max(0, gain_q) * rate_factor))
+
+    roi_df = pd.DataFrame(marginal_upgrades, columns=['Renovation', 'Value_Gain']).sort_values('Value_Gain', ascending=True)
+    if is_inr:
+        unit_scale_roi = 100_000
+        roi_df['Plot_Gain'] = roi_df['Value_Gain'] / unit_scale_roi
+        roi_x_title = "Estimated Incremental Market Value (₹ Lakhs)"
+    else:
+        roi_df['Plot_Gain'] = roi_df['Value_Gain'] / 1000.0
+        roi_x_title = "Estimated Incremental Market Value ($ in Thousands)"
+
+    fig_roi = px.bar(
+        roi_df, x='Plot_Gain', y='Renovation', orientation='h',
+        color='Plot_Gain',
+        color_continuous_scale=['#38bdf8', '#34d399', '#10b981'],
+        title="Comparative Impact of Individual Home Renovations on Valuation"
+    )
+    fig_roi.update_layout(
+        template="plotly_dark",
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        margin=dict(l=20, r=20, t=40, b=40),
+        xaxis_title=roi_x_title,
+        yaxis_title="",
+        coloraxis_showscale=False
+    )
+    st.plotly_chart(fig_roi)
 
 # ---------------------------------------------------------
 # TAB 4: ADVANCED ECONOMETRIC AUDIT REPORT
